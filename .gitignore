@@ -1,0 +1,31 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.env
+.env.*
+!.env.example
+*.pem
+.keys/
+output/
+
+# Terraform local caches, state, saved plans, and machine-specific configuration
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+*.plan
+tfplan
+plan.out
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Commit .terraform.lock.hcl and placeholder-only *.tfvars.example files.
