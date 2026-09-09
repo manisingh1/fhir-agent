@@ -10,6 +10,7 @@ No Lambda is needed to serve a static public key set.
 - `examples/sandbox`: root-module example with placeholders only.
 - `bootstrap`: protected Terraform state storage template.
 - `../scripts/publish_jwks.py`: public-key export, publication, and verification.
+- `../scripts/smoke_test.py`: Epic public-sandbox Patient read without logging data.
 
 Put real deployment roots, account/role identifiers, backend settings, and CI
 workflows in a separate private deployment repository. Consume this public module
@@ -146,6 +147,27 @@ manifest and verify before registering or changing client keys. There is no
 automatic rollback. Concurrent-write failures require a fresh read and retry.
 The environment-specific manifest stays in ignored `output/`.
 
+## 4. Configure Epic and test
+
+Register the verified JWKS URL under **Non-Production JWK Set URL**, enable R4
+Patient Read and the required search APIs, and save for sandbox. Allow for Epic
+settings propagation. Terraform does not automate the portal or accept agreements.
+
+Copy `.env.example` to `.env`; fill in the non-production `EPIC_CLIENT_ID` plus
+`AWS_REGION`, `EPIC_KMS_KEY_ID`, and `EPIC_KEY_ID` from `client_config`. Leave the
+other key sources blank. Use the signer AWS profile (`AWS_PROFILE`), which may
+differ from the publisher profile:
+
+```sh
+.venv/bin/fhir-agent auth-check
+.venv/bin/python scripts/smoke_test.py --patient-id ACTUAL_SYNTHETIC_SANDBOX_FHIR_ID
+```
+
+The smoke test refuses other endpoints, validates the returned Patient ID/type,
+and prints only a summary. To inspect the synthetic resource locally, use
+`fhir-agent get Patient/ID`; do not publish its output. A token does not prove
+that every API is enabled, authorized, or populated.
+
 ## Rotation and recovery
 
 1. Retain `v1`, add `v2` to `key_versions`, and apply. Leave clients on `v1`.
@@ -180,7 +202,7 @@ terraform -chdir=infra/modules/epic-auth test
 
 GitHub Actions runs formatting, validation of all three Terraform roots, and the
 mocked tests on pull requests and pushes to `main`. It uses no AWS credentials
-and does not deploy. Python CI also runs publisher regressions.
+and does not deploy. Python CI also runs publisher and smoke-test regressions.
 
 All Terraform tests mock the AWS provider. `command = apply` in those tests runs
 against mocks only. Validation is not a live account plan, IAM audit, deployed
