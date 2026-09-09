@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "fhir-agent"
 version = "0.1.0"
 description = "Read-only Epic FHIR R4 sandbox client"
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["PyJWT[crypto]>=2.10,<3", "requests>=2.32,<3", "python-dotenv>=1,<2"]
 
