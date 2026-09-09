@@ -9,6 +9,7 @@ No Lambda is needed to serve a static public key set.
 - `modules/epic-auth`: KMS, S3, CloudFront, and IAM module.
 - `examples/sandbox`: root-module example with placeholders only.
 - `bootstrap`: protected Terraform state storage template.
+- `../scripts/publish_jwks.py`: public-key export, publication, and verification.
 
 Put real deployment roots, account/role identifiers, backend settings, and CI
 workflows in a separate private deployment repository. Consume this public module
@@ -122,3 +123,71 @@ terraform -chdir=infra/examples/sandbox apply sandbox.tfplan
 Review the plan before applying. CloudFront deployment can take several minutes.
 The endpoint returns an error until JWKS is published. Terraform deliberately
 does not own that object, preventing conflicts with the publishing script.
+
+## 3. Publish and verify JWKS
+
+From the public client checkout, adjusting the Terraform path for a private root:
+
+```sh
+mkdir -p output
+terraform -chdir=infra/examples/sandbox output -json publisher_config > output/publisher.json
+.venv/bin/python scripts/publish_jwks.py --config output/publisher.json --profile YOUR_PUBLISHER_PROFILE
+.venv/bin/python scripts/publish_jwks.py --config output/publisher.json --profile YOUR_PUBLISHER_PROFILE --apply
+```
+
+Without `--apply`, only account checks, public-key retrieval, and existing-object
+reads occur. Publication uses conditional S3 writes to prevent lost concurrent
+updates, invalidates `/jwks.json`, waits up to five minutes for invalidation, then
+verifies the public HTTPS JSON. It rejects private fields, weak keys, duplicate
+IDs, and replacing a key's material under the same `kid`. It never calls `kms:Sign`.
+
+Failure can happen after upload (for example invalidation timeout); rerun the same
+manifest and verify before registering or changing client keys. There is no
+automatic rollback. Concurrent-write failures require a fresh read and retry.
+The environment-specific manifest stays in ignored `output/`.
+
+## Rotation and recovery
+
+1. Retain `v1`, add `v2` to `key_versions`, and apply. Leave clients on `v1`.
+2. Export a fresh manifest and publish both public keys. Verify the endpoint.
+3. Select `active_key_version = "v2"`, apply, update client settings, and smoke-test.
+4. Keep both public keys through the overlap period, accounting for old running
+   clients, in-flight assertions, and Epic and CloudFront caches.
+5. After old signing stops, set `published_key_versions = ["v2"]` while retaining
+   both keys in `key_versions`. Export a fresh manifest; explicitly publish with
+   `--retire-kid YOUR_NAME-v1 --apply`. Reverify the endpoint and authentication.
+
+The publisher preserves existing keys by default and refuses to retire a key
+still present in the manifest. `prevent_destroy` retains old KMS keys, which
+continue to incur storage charges. Disable/delete them through a separately
+reviewed lifecycle change when rollback is no longer needed. Do not remove
+`prevent_destroy` or rename a key version as a routine rotation step. S3 versions
+support recovery, but validate restored public content before republishing.
+
+## Offline verification
+
+```sh
+terraform fmt -check -recursive infra
+terraform -chdir=infra/bootstrap init -backend=false
+terraform -chdir=infra/bootstrap validate
+terraform -chdir=infra/bootstrap test
+terraform -chdir=infra/examples/sandbox init -backend=false
+terraform -chdir=infra/examples/sandbox validate
+terraform -chdir=infra/modules/epic-auth init -backend=false
+terraform -chdir=infra/modules/epic-auth test
+.venv/bin/python -m pytest -q
+```
+
+GitHub Actions runs formatting, validation of all three Terraform roots, and the
+mocked tests on pull requests and pushes to `main`. It uses no AWS credentials
+and does not deploy. Python CI also runs publisher regressions.
+
+All Terraform tests mock the AWS provider. `command = apply` in those tests runs
+against mocks only. Validation is not a live account plan, IAM audit, deployed
+endpoint check, or Epic connectivity proof.
+
+References: [Terraform S3 backend](https://developer.hashicorp.com/terraform/language/backend/s3),
+[CloudFront OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html),
+[KMS public keys](https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html),
+[Lambda roles](https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html),
+[Epic authentication](https://fhir.epic.com/Documentation?docId=oauth2).
