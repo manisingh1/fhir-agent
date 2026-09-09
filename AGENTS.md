@@ -16,6 +16,11 @@ apply throughout the repository.
 - Run `.venv/bin/python -m pytest -q` for code changes. Tests must be offline by
   default and use generated temporary keys and HTTP/AWS doubles.
 - See `README.md` and `docs/client.md` for configuration and library usage.
+- The optional HTTP service is documented in `docs/service.md`. Patient grants
+  must come from a trusted backend after user authorization; keep the grant key
+  separate from Epic signing credentials. Never add a production mock-data mode.
+- For API changes, regenerate OpenAPI/TypeScript types and run the container
+  integration test with synthetic fixtures. Do not log request paths or payloads.
 
 ## AWS infrastructure
 

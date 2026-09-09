@@ -1,0 +1,85 @@
+# Reusable template only. Keep actual configuration and image digest in private deployment repo.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fhir-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fhir-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: fhir-service}
+  template:
+    metadata:
+      labels: {app: fhir-service}
+    spec:
+      serviceAccountName: fhir-service
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: fhir
+          image: YOUR_REGISTRY/fhir-agent@sha256:YOUR_REVIEWED_DIGEST
+          ports:
+            - {name: http, containerPort: 8000}
+          envFrom:
+            - configMapRef: {name: fhir-service-config}
+          env:
+            - {name: FHIR_GRANT_KEY_FILE, value: /run/secrets/grant-key}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - {name: grant-key, mountPath: /run/secrets, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: grant-key
+          secret:
+            secretName: fhir-service-grant-key
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {sizeLimit: 32Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fhir-service
+spec:
+  type: ClusterIP
+  selector: {app: fhir-service}
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fhir-service-ingress
+spec:
+  podSelector:
+    matchLabels: {app: fhir-service}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: fhir-host-app}
+      ports:
+        - {protocol: TCP, port: 8000}

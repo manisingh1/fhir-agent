@@ -1,0 +1,6 @@
+# Explicit synthetic test fixture; the production image has no mock-data mode.
+services:
+  fhir:
+    command: ["python", "/fixtures/server.py"]
+    volumes:
+      - ./tests/container:/fixtures:ro

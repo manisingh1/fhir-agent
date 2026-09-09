@@ -1,0 +1,54 @@
+name: Container CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    name: TypeScript and local container integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: examples/typescript/package-lock.json
+      - name: Verify generated API contract and TypeScript
+        run: |
+          python -m pip install -e '.[service]'
+          python scripts/export_openapi.py
+          npm ci --prefix examples/typescript
+          npm run generate --prefix examples/typescript
+          npm run check --prefix examples/typescript
+          git diff --exit-code -- examples/typescript/openapi.json examples/typescript/schema.d.ts
+      - name: Build and start synthetic container
+        run: |
+          python scripts/init_local_service.py
+          export FHIR_LOCAL_UID="$(id -u)" FHIR_LOCAL_GID="$(id -g)"
+          docker compose -f compose.yaml -f compose.test.yaml up --build -d --wait
+      - name: Exercise TypeScript client and authorization boundaries
+        run: npm run smoke --prefix examples/typescript
+      - name: Verify production image requires configuration
+        run: |
+          if docker run --rm fhir-agent:local; then
+            echo 'Unconfigured service unexpectedly started'
+            exit 1
+          fi
+      - name: Stop test containers
+        if: always()
+        run: docker compose -f compose.yaml -f compose.test.yaml down

@@ -30,3 +30,9 @@ override.tf.json
 terraform.rc
 *.tfbackend
 # Commit .terraform.lock.hcl and placeholder-only *.tfvars.example files.
+
+# Local service credentials and build artifacts
+.runtime/
+node_modules/
+build/
+dist/
