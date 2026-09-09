@@ -28,4 +28,5 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+*.tfbackend
 # Commit .terraform.lock.hcl and placeholder-only *.tfvars.example files.
