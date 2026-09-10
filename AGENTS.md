@@ -21,6 +21,9 @@ apply throughout the repository.
 
 - Use Terraform for reproducible AWS provisioning. Keep reusable infrastructure
   definitions in version control and deployment-specific values outside it.
+- Keep reusable modules and placeholder examples in this public repository. Put
+  actual environment roots and deployment workflows in a private deployment repo;
+  credentials and Terraform state/plans stay out of Git in both repositories.
 - Commit `.terraform.lock.hcl` for reproducible provider versions. Ignore local
   caches, state, saved plans, real variable files, and CLI credentials. Use
   `*.tfvars.example` for placeholder-only examples and `*.tfplan` for saved plans.

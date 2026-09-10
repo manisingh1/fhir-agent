@@ -15,6 +15,11 @@ downloads and writes are not implemented.
 See [the library guide](docs/client.md) for module boundaries, Python examples,
 patient context, user-token integration, and error/retry behavior.
 
+See [the Terraform deployment guide](infra/README.md) for the reusable KMS/JWKS
+authentication stack, protected state bootstrap, private deployment-repo setup,
+public-key publishing, and sandbox smoke test. The included environment examples
+contain placeholders; no AWS resources are deployed by installing this package.
+
 ## Run locally
 
 ```sh

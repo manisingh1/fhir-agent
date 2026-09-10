@@ -1,0 +1,8 @@
+# Copy to backend_override.tf AFTER the state bucket exists, then migrate state.
+terraform {
+  backend "s3" {
+    key          = "bootstrap/terraform.tfstate"
+    encrypt      = true
+    use_lockfile = true
+  }
+}

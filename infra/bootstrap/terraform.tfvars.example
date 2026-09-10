@@ -1,0 +1,5 @@
+account_id  = "000000000000"
+region      = "us-east-2"
+bucket_name = "YOUR-GLOBALLY-UNIQUE-STATE-BUCKET"
+# Include the existing IAM identity running Terraform, as an IAM ARN.
+admin_principal_arns = ["arn:aws:iam::000000000000:role/TerraformDeployer"]
