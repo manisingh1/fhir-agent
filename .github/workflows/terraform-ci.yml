@@ -19,7 +19,7 @@ env:
 
 jobs:
   terraform:
-    name: Format, validate, and mocked tests
+    name: Terraform 1.14.0 (minimum supported)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -42,3 +42,6 @@ jobs:
         run: |
           terraform -chdir=infra/bootstrap test
           terraform -chdir=infra/modules/epic-auth test
+          terraform -chdir=infra/examples/sandbox test
+      - name: Verify retained key deletion is blocked
+        run: python3 scripts/test_key_retention.py

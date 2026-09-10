@@ -65,7 +65,7 @@ Keep publishing and deployment permissions off the runtime role.
 
 ## Prerequisites
 
-Terraform >= 1.11 and < 2; committed AWS provider lockfiles; an OpenSSL-based
+Terraform >= 1.14 and < 2; committed AWS provider lockfiles; an OpenSSL-based
 Python >= 3.9 with `pip install -e '.[aws,test]'` in a virtual environment. The
 deployment identity needs permissions to manage the declared resources and IAM
 policy attachments; the module does not grant these deployment privileges.
@@ -195,14 +195,24 @@ terraform -chdir=infra/bootstrap validate
 terraform -chdir=infra/bootstrap test
 terraform -chdir=infra/examples/sandbox init -backend=false
 terraform -chdir=infra/examples/sandbox validate
+terraform -chdir=infra/examples/sandbox test
 terraform -chdir=infra/modules/epic-auth init -backend=false
 terraform -chdir=infra/modules/epic-auth test
+python3 scripts/test_key_retention.py
 .venv/bin/python -m pytest -q
 ```
 
 GitHub Actions runs formatting, validation of all three Terraform roots, and the
 mocked tests on pull requests and pushes to `main`. It uses no AWS credentials
 and does not deploy. Python CI also runs publisher and smoke-test regressions.
+
+CI runs this coverage on Terraform 1.14.0, the supported minimum. Terraform 1.11
+blocks mocked-test cleanup on `prevent_destroy` resources; 1.14 handles cleanup
+while still rejecting explicit deletion plans.
+The sandbox test exercises the real module with a mocked AWS provider. The
+retention harness separately checks that removing a retained key produces the
+expected `prevent_destroy` error; unrelated failures do not count as success.
+Set `TERRAFORM_BIN` to select a local Terraform executable for that harness.
 
 All Terraform tests mock the AWS provider. `command = apply` in those tests runs
 against mocks only. Validation is not a live account plan, IAM audit, deployed
