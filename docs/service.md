@@ -77,6 +77,17 @@ FHIR resources intentionally remain extensible JSON rather than a full R4 schema
 `smoke.ts` mints synthetic grants only; replace that logic with your application's
 verified user/patient authorization. It prints a summary, never resource bodies.
 
+For a Python-only check of the running synthetic container, run from the repo root:
+
+```sh
+.venv/bin/python scripts/test_local_service.py
+```
+
+This makes patient and conditions requests and verifies three authorization
+failures. It prints status summaries, never keys, tokens, or resource bodies.
+Use `--port 8001` if you mapped a different local port. It only contacts loopback
+and exits nonzero if a check fails. This is for `compose.test.yaml`, not live Epic.
+
 ## Local live Epic sandbox
 
 First deploy the authentication infrastructure, publish JWKS, and register it in
