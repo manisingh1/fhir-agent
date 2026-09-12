@@ -84,12 +84,33 @@ Epic as described in [the infrastructure guide](../infra/README.md). Supply
 `EPIC_CLIENT_ID`, `EPIC_KEY_ID`, `EPIC_KMS_KEY_ID`, and `AWS_REGION` outside Git.
 The Compose service uses the client's default Epic sandbox endpoints.
 
-Create a private Compose override to mount a dedicated AWS profile directory
-read-only into `/home/app/.aws` and set `AWS_PROFILE`. Use a profile that can sign
-only with the intended sandbox KMS key. SSO profiles require a valid host login
-and readable cache; do not put AWS credentials in image layers. The service also
-supports the SDK credential chain, including EKS Pod Identity. Do not mount all
-personal credentials into a shared or untrusted container.
+The image's `aws` extra includes the SDK's browser-login and automatic-refresh
+dependencies. Use a dedicated profile and login cache outside the repository:
+
+```sh
+mkdir -p "$HOME/.aws/fhir-agent-sandbox/cache"
+chmod 700 "$HOME/.aws/fhir-agent-sandbox" "$HOME/.aws/fhir-agent-sandbox/cache"
+AWS_LOGIN_CACHE_DIRECTORY="$HOME/.aws/fhir-agent-sandbox/cache" \
+  aws login --profile fhir-sandbox-runtime --region us-east-2
+```
+
+In a private Compose override, mount a profile-only config file read-only, set
+`AWS_CONFIG_FILE` to its container path, and set `AWS_PROFILE` and
+`AWS_DEFAULT_REGION`. Mount the dedicated cache **directory** read-write and set
+`AWS_LOGIN_CACHE_DIRECTORY` to its container path. Directory mounts allow the
+container to see files replaced by subsequent host logins. Match the container's
+UID/GID to the cache owner. Do not mount the entire personal AWS directory.
+
+AWS login credentials expire after 15 minutes; the SDK automatically renews them
+within the login session, which lasts at most 12 hours. Once the session expires,
+run the same login command again. A custom refresh loop cannot extend the session.
+Refresh tokens are credentials too: keep the cache outside Git and image build
+contexts. No credential values belong in Dockerfiles, Compose files, or examples.
+Use a profile authorized to sign only with the intended sandbox KMS key.
+
+For unattended EKS workloads, use Pod Identity through the same default SDK
+credential chain. Do not mount a developer login cache or set a developer profile
+in the pod. The SDK obtains and refreshes role credentials automatically.
 
 Run `docker compose up --build -d --wait` with the private override, **without**
 `compose.test.yaml`. Have your trusted backend authorize a real synthetic Epic
@@ -126,4 +147,5 @@ No long-lived AWS access key is needed in the pod. Probe success does not prove
 that an Epic registration is enabled or has access to every resource type.
 
 References: [FastAPI containers](https://fastapi.tiangolo.com/deployment/docker/),
+[AWS login credential refresh](https://docs.aws.amazon.com/sdkref/latest/guide/feature-login-credentials.html),
 [EKS Pod Identity SDK support](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-minimum-sdk.html).
