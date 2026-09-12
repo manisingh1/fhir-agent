@@ -26,3 +26,35 @@ run "protected_state" {
     error_message = "State access must be restricted to the administrator and account recovery."
   }
 }
+
+run "state_tls_boundary" {
+  command = apply
+  assert {
+    condition     = jsondecode(aws_s3_bucket_policy.state.policy).Statement[2].Effect == "Deny" && jsondecode(aws_s3_bucket_policy.state.policy).Statement[2].Principal == "*" && jsondecode(aws_s3_bucket_policy.state.policy).Statement[2].Action == "s3:*" && jsondecode(aws_s3_bucket_policy.state.policy).Statement[2].Condition.Bool["aws:SecureTransport"] == "false" && toset(jsondecode(aws_s3_bucket_policy.state.policy).Statement[2].Resource) == toset([aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"])
+    error_message = "State bucket must deny all non-TLS requests."
+  }
+}
+
+run "reject_empty_admins" {
+  command = plan
+  variables {
+    admin_principal_arns = []
+  }
+  expect_failures = [aws_s3_bucket.state]
+}
+
+run "reject_wildcard_admin" {
+  command = plan
+  variables {
+    admin_principal_arns = ["*"]
+  }
+  expect_failures = [aws_s3_bucket.state]
+}
+
+run "reject_sts_admin" {
+  command = plan
+  variables {
+    admin_principal_arns = ["arn:aws:sts::123456789012:assumed-role/Deployer/session"]
+  }
+  expect_failures = [aws_s3_bucket.state]
+}

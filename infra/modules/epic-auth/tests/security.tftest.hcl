@@ -93,6 +93,87 @@ run "reject_unknown_active_version" {
   expect_failures = [var.active_key_version]
 }
 
+run "exact_permission_boundaries" {
+  command = apply
+  assert {
+    condition     = length(jsondecode(aws_iam_policy.publishing.policy).Statement) == 4
+    error_message = "Publisher policy must have exactly the four intended grants."
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.publishing.policy).Statement[0].Effect == "Allow" && toset(jsondecode(aws_iam_policy.publishing.policy).Statement[0].Action) == toset(["kms:GetPublicKey", "kms:DescribeKey"]) && toset(jsondecode(aws_iam_policy.publishing.policy).Statement[0].Resource) == toset([aws_kms_key.signing["v1"].arn])
+    error_message = "Publisher grant 0 must remain scoped to its exact actions and resources."
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.publishing.policy).Statement[1].Effect == "Allow" && toset(jsondecode(aws_iam_policy.publishing.policy).Statement[1].Action) == toset(["s3:GetObject", "s3:PutObject"]) && toset([jsondecode(aws_iam_policy.publishing.policy).Statement[1].Resource]) == toset(["${aws_s3_bucket.jwks.arn}/jwks.json"])
+    error_message = "Publisher grant 1 must remain scoped to its exact actions and resources."
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.publishing.policy).Statement[2].Effect == "Allow" && toset(jsondecode(aws_iam_policy.publishing.policy).Statement[2].Action) == toset(["s3:ListBucket"]) && toset([jsondecode(aws_iam_policy.publishing.policy).Statement[2].Resource]) == toset([aws_s3_bucket.jwks.arn])
+    error_message = "Publisher grant 2 must remain scoped to its exact actions and resources."
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.publishing.policy).Statement[3].Effect == "Allow" && toset(jsondecode(aws_iam_policy.publishing.policy).Statement[3].Action) == toset(["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]) && toset([jsondecode(aws_iam_policy.publishing.policy).Statement[3].Resource]) == toset([aws_cloudfront_distribution.jwks.arn])
+    error_message = "Publisher grant 3 must remain scoped to its exact actions and resources."
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.publishing.policy).Statement[2].Condition.StringEquals["s3:prefix"] == "jwks.json"
+    error_message = "Listing must use the exact JWKS prefix."
+  }
+  assert {
+    condition     = length(jsondecode(aws_iam_policy.signing.policy).Statement) == 1 && jsondecode(aws_iam_policy.signing.policy).Statement[0].Condition.StringEquals["kms:SigningAlgorithm"] == "RSASSA_PKCS1_V1_5_SHA_384"
+    error_message = "IAM signing must remain restricted to RS384."
+  }
+  assert {
+    condition     = one([for s in jsondecode(aws_kms_key.signing["v1"].policy).Statement : s if s.Sid == "AssertionSigners"]).Condition.StringEquals["kms:SigningAlgorithm"] == "RSASSA_PKCS1_V1_5_SHA_384"
+    error_message = "KMS signing must remain restricted to RS384."
+  }
+  assert {
+    condition     = jsondecode(aws_s3_bucket_policy.jwks.policy).Statement[1].Effect == "Deny" && jsondecode(aws_s3_bucket_policy.jwks.policy).Statement[1].Principal == "*" && jsondecode(aws_s3_bucket_policy.jwks.policy).Statement[1].Action == "s3:*" && jsondecode(aws_s3_bucket_policy.jwks.policy).Statement[1].Condition.Bool["aws:SecureTransport"] == "false" && toset(jsondecode(aws_s3_bucket_policy.jwks.policy).Statement[1].Resource) == toset([aws_s3_bucket.jwks.arn, "${aws_s3_bucket.jwks.arn}/*"])
+    error_message = "JWKS bucket must deny all non-TLS requests."
+  }
+}
+
+run "reject_wildcard_signer" {
+  command = plan
+  variables {
+    signer_principal_arns = ["*"]
+  }
+  expect_failures = [aws_kms_key.signing]
+}
+
+run "reject_sts_signer" {
+  command = plan
+  variables {
+    signer_principal_arns = ["arn:aws:sts::123456789012:assumed-role/Runtime/session"]
+  }
+  expect_failures = [aws_kms_key.signing]
+}
+
+run "reject_empty_admins" {
+  command = plan
+  variables {
+    admin_principal_arns = []
+  }
+  expect_failures = [var.admin_principal_arns]
+}
+
+run "reject_empty_publishers" {
+  command = plan
+  variables {
+    publisher_principal_arns = []
+  }
+  expect_failures = [var.publisher_principal_arns]
+}
+
+run "reject_unpublished_active_key" {
+  command = plan
+  variables {
+    published_key_versions = ["v2"]
+    key_versions           = ["v1", "v2"]
+  }
+  expect_failures = [var.published_key_versions]
+}
+
 run "rotation_keeps_both_keys" {
   command = apply
   variables {
