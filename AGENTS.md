@@ -22,6 +22,22 @@ apply throughout the repository.
 - For API changes, regenerate OpenAPI/TypeScript types and run the container
   integration test with synthetic fixtures. Do not log request paths or payloads.
 
+## AWS command approval
+
+- Before running any AWS CLI command or Python AWS SDK (boto3/botocore) operation,
+  show the user the exact command or Python code and explain its purpose and
+  whether it reads or changes AWS resources. This includes read-only checks,
+  authentication, and scripts that invoke the CLI or SDK indirectly.
+- Ask for explicit permission and wait for approval before execution. General
+  task or deployment authorization does not replace approval of the displayed
+  commands. A clearly listed batch may be approved together; changed commands
+  or additional operations require fresh approval.
+- Never include secret values in the preview. Use environment-variable or
+  credential-provider references and identify any redacted sensitive arguments.
+- Do not switch to Terraform, the console, or another tool to bypass this rule.
+  For Terraform operations that contact AWS, show the command and intended
+  operations and obtain approval before running them.
+
 ## AWS infrastructure
 
 - Use Terraform for reproducible AWS provisioning. Keep reusable infrastructure
