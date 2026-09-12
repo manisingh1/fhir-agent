@@ -1,0 +1,25 @@
+services:
+  fhir:
+    build: .
+    image: fhir-agent:local
+    user: "${FHIR_LOCAL_UID:-10001}:${FHIR_LOCAL_GID:-10001}"
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      FHIR_GRANT_KEY_FILE: /run/secrets/grant-key
+      EPIC_CLIENT_ID: ${EPIC_CLIENT_ID:-}
+      EPIC_KEY_ID: ${EPIC_KEY_ID:-}
+      EPIC_KMS_KEY_ID: ${EPIC_KMS_KEY_ID:-}
+      AWS_REGION: ${AWS_REGION:-us-east-2}
+    secrets:
+      - grant-key
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    stop_grace_period: 40s
+secrets:
+  grant-key:
+    file: .runtime/grant-key

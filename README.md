@@ -146,3 +146,8 @@ alone does not grant access to all EHR data.
 Sources: [Epic OAuth and JWKS documentation](https://fhir.epic.com/Documentation?docId=oauth2),
 [Epic application user context](https://fhir.epic.com/Documentation?docId=usercontext),
 [Epic API specifications](https://fhir.epic.com/Sandbox).
+
+## HTTP service and containers
+
+See [the service guide](docs/service.md) for the optional Python API, generated
+TypeScript client, local container test, and EKS deployment template.

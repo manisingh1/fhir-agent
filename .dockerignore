@@ -1,0 +1,10 @@
+# Allowlist: deployment files, credentials, Git history, and tests never enter build context.
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!LICENSE
+!fhir_agent/
+!fhir_agent/**
+**/__pycache__/
+**/*.pyc
